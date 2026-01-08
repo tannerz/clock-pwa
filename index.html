@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0a84ff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Clock</title>
+  <style>
+    :root{
+      --bg:#f2f2f7; --card:rgba(255,255,255,.86); --text:#111; --muted:#6b7280;
+      --line:rgba(0,0,0,.08); --primary:#0a84ff; --danger:#ff3b30;
+      --shadow:0 12px 30px rgba(0,0,0,.10); --radius:18px;
+      --blur:saturate(180%) blur(18px);
+      --font:-apple-system,system-ui,"PingFang SC","Noto Sans CJK SC","Segoe UI",Roboto,Helvetica,Arial;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#000; --card:rgba(28,28,30,.84); --text:#f5f5f7; --muted:#9ca3af;
+        --line:rgba(255,255,255,.10); --shadow:0 18px 40px rgba(0,0,0,.55);
+      }
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0; background:var(--bg); color:var(--text); font-family:var(--font);
+      -webkit-text-size-adjust:100%; text-size-adjust:100%;
+    }
+    .app{
+      max-width:520px; margin:0 auto;
+      padding: calc(10px + env(safe-area-inset-top)) 14px calc(92px + env(safe-area-inset-bottom)) 14px;
+    }
+    .topbar{
+      position:sticky; top:0; z-index:10;
+      padding: 4px 0 10px;
+      background: linear-gradient(to bottom, rgba(242,242,247,1), rgba(242,242,247,.65), rgba(242,242,247,0));
+    }
+    @media (prefers-color-scheme: dark){
+      .topbar{ background: linear-gradient(to bottom, rgba(0,0,0,1), rgba(0,0,0,.6), rgba(0,0,0,0)); }
+    }
+    .toprow{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+    .title{font-size:22px; font-weight:900; letter-spacing:.2px;}
+    .sub{font-size:12px; color:var(--muted);}
+    .iconBtn{
+      border:1px solid var(--line); border-radius:14px;
+      background: rgba(255,255,255,.55);
+      backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+      padding:10px 12px; font-size:15px; font-weight:800; color:var(--text);
+    }
+    @media (prefers-color-scheme: dark){ .iconBtn{ background: rgba(28,28,30,.55);} }
+    .iconBtn:active{ transform: scale(.98); }
+
+    .card{
+      background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+      overflow:hidden;
+    }
+    .cardHeader{
+      padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+      border-bottom:1px solid var(--line);
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.45);
+      font-size:12px;
+    }
+    @media (prefers-color-scheme: dark){ .pill{ background: rgba(28,28,30,.4);} }
+
+    .list{ padding:6px 0; }
+    .empty{ padding:22px 14px; text-align:center; color:var(--muted); font-size:13px; }
+    .item{
+      padding:12px 14px; display:flex; gap:12px; align-items:flex-start;
+      border-top:1px solid var(--line);
+    }
+    .item:first-child{ border-top:0; }
+    .dot{ width:10px; height:10px; border-radius:999px; background:var(--primary); margin-top:6px; flex:0 0 auto; }
+    .itemMain{ flex:1; min-width:0; }
+    .itemTitle{ font-size:15px; font-weight:900; line-height:1.25; word-break:break-word; }
+    .itemMeta{ margin-top:4px; font-size:12px; color:var(--muted); display:flex; flex-wrap:wrap; gap:10px; }
+    .itemBtn{
+      border:1px solid var(--line); background:transparent; color:var(--muted);
+      padding:8px 10px; border-radius:12px; font-weight:800;
+    }
+    .itemBtn:active{ transform: scale(.98); }
+
+    .bottombar{
+      position:fixed; left:50%; transform:translateX(-50%); bottom:0;
+      width:min(520px, 100%);
+      padding: 10px 14px calc(10px + env(safe-area-inset-bottom)) 14px;
+      z-index:20; pointer-events:none;
+    }
+    .bar{
+      pointer-events:auto;
+      border-radius:22px; border:1px solid var(--line);
+      background: rgba(255,255,255,.70);
+      backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+      box-shadow:var(--shadow);
+      padding:10px; display:grid; gap:10px;
+    }
+    @media (prefers-color-scheme: dark){ .bar{ background: rgba(28,28,30,.70);} }
+    .barTop{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .barState{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .hint{ font-size:12px; color:var(--muted); }
+    .actions{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .big{
+      border:0; border-radius:18px; padding:14px 12px;
+      font-size:17px; font-weight:950;
+    }
+    .big:active{ transform:scale(.985); }
+    .in{ background:var(--primary); color:#fff; }
+    .out{ background:var(--danger); color:#fff; }
+    .big:disabled{ opacity:.45; transform:none; }
+
+    /* Sheet */
+    .sheetMask{ position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:flex-end; z-index:30; }
+    .sheet{
+      width:min(520px, 100%); margin:0 auto;
+      background: rgba(255,255,255,.80);
+      border:1px solid var(--line);
+      backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+      border-radius:22px 22px 0 0;
+      box-shadow:var(--shadow);
+      padding: 12px 14px calc(18px + env(safe-area-inset-bottom)) 14px;
+    }
+    @media (prefers-color-scheme: dark){ .sheet{ background: rgba(28,28,30,.86);} }
+    .grabber{ width:44px; height:5px; border-radius:999px; margin:2px auto 10px; background:rgba(0,0,0,.2); }
+    @media (prefers-color-scheme: dark){ .grabber{ background:rgba(255,255,255,.2);} }
+    .sheetTitle{ display:flex; align-items:center; justify-content:space-between; gap:10px; font-weight:950; }
+    label{ font-size:12px; color:var(--muted); }
+    input,select{
+      width:100%;
+      border-radius:16px; border:1px solid var(--line);
+      padding:12px 12px; font-size:16px; background:rgba(255,255,255,.45); color:var(--text);
+    }
+    @media (prefers-color-scheme: dark){ input,select{ background: rgba(28,28,30,.35);} }
+    .sheetBtns{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    .ghost{
+      width:100%;
+      background:transparent; border:1px solid var(--line); color:var(--text);
+      padding:12px 12px; border-radius:16px; font-weight:950;
+    }
+    .primarySmall{
+      width:100%;
+      background:var(--primary); border:0; color:#fff;
+      padding:12px 12px; border-radius:16px; font-weight:950;
+    }
+    .dangerSmall{
+      width:100%;
+      background:var(--danger); border:0; color:#fff;
+      padding:12px 12px; border-radius:16px; font-weight:950;
+      margin-top:10px;
+    }
+    .tinyRow{ display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+    .tiny{
+      flex:1 1 120px;
+      border:1px solid var(--line); background:transparent; color:var(--muted);
+      padding:10px 12px; border-radius:16px; font-weight:950;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="toprow">
+        <div>
+          <div class="title">Clock</div>
+          <div class="sub" id="subtitle">离线可用（添加到主屏幕后）</div>
+        </div>
+        <button class="iconBtn" id="openSheetBtn">管理</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cardHeader">
+        <div class="sub" id="netBadge">状态：检查中…</div>
+        <div class="pill" id="totalPill">Total: 0</div>
+      </div>
+      <div class="list" id="list"></div>
+      <div class="empty" id="empty">暂无记录。先点“管理”选择/保存 ID，然后 IN / OUT。</div>
+    </div>
+  </div>
+
+  <div class="bottombar">
+    <div class="bar">
+      <div class="barTop">
+        <div class="barState">
+          <span class="pill" id="idPill">ID: —</span>
+          <span class="pill" id="inPill">IN: —</span>
+        </div>
+        <div class="hint" id="hint">未开始</div>
+      </div>
+      <div class="actions">
+        <button class="big in" id="inBtn" disabled>IN</button>
+        <button class="big out" id="outBtn" disabled>OUT</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheetMask" id="sheetMask">
+    <div class="sheet" role="dialog" aria-modal="true">
+      <div class="grabber"></div>
+      <div class="sheetTitle">
+        <span>管理 ID & 数据</span>
+        <button class="ghost" id="closeSheetBtn">关闭</button>
+      </div>
+
+      <div style="margin-top:10px; display:grid; gap:8px;">
+        <label>选择已保存 ID</label>
+        <select id="idSelect"></select>
+      </div>
+
+      <div style="margin-top:10px; display:grid; gap:8px;">
+        <label>添加新 ID（四位数）</label>
+        <input id="newId" inputmode="numeric" maxlength="4" placeholder="例如 0105" />
+      </div>
+
+      <div class="sheetBtns">
+        <button class="primarySmall" id="saveIdBtn">保存 ID</button>
+        <button class="ghost" id="useIdBtn">使用所选</button>
+      </div>
+
+      <button class="dangerSmall" id="deleteIdBtn">删除所选 ID</button>
+
+      <div class="tinyRow">
+        <button class="tiny" id="copyBtn">复制全部记录</button>
+        <button class="tiny" id="exportBtn">导出 CSV</button>
+        <button class="tiny" id="clearBtn">清空记录</button>
+      </div>
+
+      <div class="sub" style="margin-top:10px;">
+        OUT 自动生成：Date: dd/mm/yyyy, ID: xxxx, hours: x.x（支持跨天）
+      </div>
+    </div>
+  </div>
+
+<script>
+  // --- Storage keys (versioned) ---
+  const LS_IDS = "clock_ids_pwa_v1";
+  const LS_STATE = "clock_state_pwa_v1";
+  const LS_LOGS = "clock_logs_pwa_v1";
+
+  // --- Elements ---
+  const listEl = document.getElementById("list");
+  const emptyEl = document.getElementById("empty");
+  const totalPill = document.getElementById("totalPill");
+  const idPill = document.getElementById("idPill");
+  const inPill = document.getElementById("inPill");
+  const hint = document.getElementById("hint");
+  const subtitle = document.getElementById("subtitle");
+  const netBadge = document.getElementById("netBadge");
+
+  const inBtn = document.getElementById("inBtn");
+  const outBtn = document.getElementById("outBtn");
+
+  const sheetMask = document.getElementById("sheetMask");
+  const openSheetBtn = document.getElementById("openSheetBtn");
+  const closeSheetBtn = document.getElementById("closeSheetBtn");
+
+  const idSelect = document.getElementById("idSelect");
+  const newId = document.getElementById("newId");
+  const saveIdBtn = document.getElementById("saveIdBtn");
+  const useIdBtn = document.getElementById("useIdBtn");
+  const deleteIdBtn = document.getElementById("deleteIdBtn");
+
+  const copyBtn = document.getElementById("copyBtn");
+  const exportBtn = document.getElementById("exportBtn");
+  const clearBtn = document.getElementById("clearBtn");
+
+  // --- Utils ---
+  const pad2 = n => String(n).padStart(2, "0");
+  const formatDate = d => `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}/${d.getFullYear()}`;
+  const formatTime = d => `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  const round1 = x => Math.round(x * 10) / 10;
+  function normaliseId(s){
+    const digits = (s || "").replace(/\\D/g, "").slice(0,4);
+    return digits.padStart(4, "0");
+  }
+
+  // --- Storage helpers ---
+  const loadIds = () => Array.from(new Set(JSON.parse(localStorage.getItem(LS_IDS) || "[]"))).sort();
+  const saveIds = ids => localStorage.setItem(LS_IDS, JSON.stringify(ids));
+  const loadState = () => JSON.parse(localStorage.getItem(LS_STATE) || "null");
+  const saveState = state => state ? localStorage.setItem(LS_STATE, JSON.stringify(state)) : localStorage.removeItem(LS_STATE);
+  const loadLogs = () => JSON.parse(localStorage.getItem(LS_LOGS) || "[]");
+  const saveLogs = logs => localStorage.setItem(LS_LOGS, JSON.stringify(logs));
+
+  // --- Sheet ---
+  const openSheet = () => { sheetMask.style.display = "flex"; refreshIdSelect(); };
+  const closeSheet = () => { sheetMask.style.display = "none"; };
+
+  openSheetBtn.addEventListener("click", openSheet);
+  closeSheetBtn.addEventListener("click", closeSheet);
+  sheetMask.addEventListener("click", (e) => { if(e.target === sheetMask) closeSheet(); });
+
+  // --- ID select ---
+  function refreshIdSelect(){
+    const ids = loadIds();
+    idSelect.innerHTML = "";
+    if(ids.length === 0){
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "（暂无已保存 ID）";
+      idSelect.appendChild(opt);
+      idSelect.disabled = true;
+    } else {
+      idSelect.disabled = false;
+      ids.forEach(id => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id;
+        idSelect.appendChild(opt);
+      });
+    }
+    const state = loadState();
+    if(state?.selectedId && ids.includes(state.selectedId)) idSelect.value = state.selectedId;
+  }
+
+  function setSelectedId(id){
+    const state = loadState() || {};
+    state.selectedId = id;
+    saveState(state.selectedId || state.inTimeISO ? state : null);
+  }
+
+  saveIdBtn.addEventListener("click", () => {
+    const id = normaliseId(newId.value);
+    if(!id || id === "0000"){ alert("请输入有效四位数 ID（例如 0105）。"); return; }
+    const ids = loadIds();
+    if(!ids.includes(id)) ids.push(id);
+    saveIds(ids);
+    newId.value = "";
+    refreshIdSelect();
+    idSelect.value = id;
+    setSelectedId(id);
+    renderState();
+  });
+
+  useIdBtn.addEventListener("click", () => {
+    if(idSelect.disabled) return;
+    setSelectedId(idSelect.value);
+    renderState();
+    closeSheet();
+  });
+
+  deleteIdBtn.addEventListener("click", () => {
+    if(idSelect.disabled) return;
+    const id = idSelect.value;
+    const ids = loadIds().filter(x => x !== id);
+    saveIds(ids);
+
+    const state = loadState() || {};
+    if(state.selectedId === id){
+      state.selectedId = "";
+      saveState(state.inTimeISO ? state : null);
+    }
+    refreshIdSelect();
+    renderState();
+  });
+
+  // --- Rendering ---
+  function renderState(){
+    const state = loadState();
+    const selectedId = state?.selectedId || "";
+    idPill.textContent = `ID: ${selectedId || "—"}`;
+    inBtn.disabled = !selectedId;
+
+    if(state?.inTimeISO){
+      const t = new Date(state.inTimeISO);
+      inPill.textContent = `IN: ${formatTime(t)}`;
+      outBtn.disabled = false;
+      hint.textContent = "已 IN，等待 OUT";
+      hint.style.color = "var(--danger)";
+      subtitle.textContent = "正在计时…（离线也行）";
+    } else {
+      inPill.textContent = "IN: —";
+      outBtn.disabled = true;
+      hint.textContent = "未开始";
+      hint.style.color = "var(--muted)";
+      subtitle.textContent = "离线可用（添加到主屏幕后）";
+    }
+  }
+
+  function renderList(){
+    const logs = loadLogs();
+    totalPill.textContent = `Total: ${logs.length}`;
+    emptyEl.style.display = logs.length ? "none" : "block";
+    listEl.innerHTML = "";
+
+    logs.slice().reverse().forEach(line => {
+      const m = line.match(/Date:\\s*([^,]+),\\s*ID:\\s*([^,]+),\\s*hours:\\s*(.+)$/);
+      const date = m ? m[1] : "—";
+      const id = m ? m[2] : "—";
+      const hours = m ? m[3] : "—";
+
+      const item = document.createElement("div");
+      item.className = "item";
+
+      const dot = document.createElement("div");
+      dot.className = "dot";
+
+      const main = document.createElement("div");
+      main.className = "itemMain";
+
+      const title = document.createElement("div");
+      title.className = "itemTitle";
+      title.textContent = `Date: ${date}, ID: ${id}, hours: ${hours}`;
+
+      const meta = document.createElement("div");
+      meta.className = "itemMeta";
+      meta.innerHTML = `<span>日期：${date}</span><span>ID：${id}</span><span>工时：${hours}</span>`;
+
+      const btn = document.createElement("button");
+      btn.className = "itemBtn";
+      btn.textContent = "复制";
+      btn.addEventListener("click", async () => {
+        try{
+          await navigator.clipboard.writeText(title.textContent);
+          btn.textContent = "已复制";
+          setTimeout(()=>btn.textContent="复制", 900);
+        }catch(e){
+          alert("复制失败：请手动复制。");
+        }
+      });
+
+      main.appendChild(title);
+      main.appendChild(meta);
+
+      item.appendChild(dot);
+      item.appendChild(main);
+      item.appendChild(btn);
+
+      listEl.appendChild(item);
+    });
+  }
+
+  // --- Clock actions ---
+  inBtn.addEventListener("click", () => {
+    const state = loadState() || {};
+    if(!state.selectedId){ alert("请先选择一个 ID（点右上角 管理）。"); return; }
+    state.inTimeISO = new Date().toISOString();
+    saveState(state);
+    renderState();
+  });
+
+  outBtn.addEventListener("click", () => {
+    const state = loadState();
+    if(!state?.inTimeISO){ alert("请先 IN。"); return; }
+
+    const selectedId = state.selectedId || "—";
+    const inTime = new Date(state.inTimeISO);
+    const outTime = new Date();
+
+    const hours = round1((outTime - inTime) / (1000*60*60));
+    const line = `Date: ${formatDate(outTime)}, ID: ${selectedId}, hours: ${hours}`;
+
+    const logs = loadLogs();
+    logs.push(line);
+    saveLogs(logs);
+
+    saveState({ selectedId }); // clear inTime, keep selectedId
+    renderState();
+    renderList();
+  });
+
+  // --- Data ops ---
+  copyBtn.addEventListener("click", async () => {
+    const text = loadLogs().join("\\n");
+    try{
+      await navigator.clipboard.writeText(text);
+      alert("已复制全部记录");
+    }catch(e){
+      alert("复制失败：请手动复制。");
+    }
+  });
+
+  exportBtn.addEventListener("click", () => {
+    const logs = loadLogs();
+    if(!logs.length){ alert("暂无记录可导出。"); return; }
+
+    const header = "Date,ID,hours\\n";
+    const rows = logs.map(line => {
+      const m = line.match(/Date:\\s*([^,]+),\\s*ID:\\s*([^,]+),\\s*hours:\\s*(.+)$/);
+      if(!m) return "";
+      const [_, date, id, hours] = m;
+      return `${date},${id},${hours}`;
+    }).filter(Boolean).join("\\n") + "\\n";
+
+    const blob = new Blob([header + rows], { type:"text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "clock_logs.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  clearBtn.addEventListener("click", () => {
+    if(confirm("确定清空所有记录吗？")){
+      saveLogs([]);
+      renderList();
+      alert("已清空");
+    }
+  });
+
+  // --- Offline indicator ---
+  function updateNet(){
+    const online = navigator.onLine;
+    netBadge.textContent = online ? "状态：在线（可安装离线 App）" : "状态：离线（仍可使用）";
+  }
+  window.addEventListener("online", updateNet);
+  window.addEventListener("offline", updateNet);
+
+  // --- Register service worker (PWA offline cache) ---
+  async function registerSW(){
+    if(!("serviceWorker" in navigator)) return;
+    try{
+      await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+    }catch(e){
+      // ignore
+    }
+  }
+
+  // --- Init ---
+  (function init(){
+    if(loadIds().length === 0) saveIds(["0105"]);
+    const state = loadState();
+    if(!state?.selectedId) setSelectedId(loadIds()[0] || "");
+    updateNet();
+    renderState();
+    renderList();
+    registerSW();
+  })();
+</script>
+</body>
+</html>
